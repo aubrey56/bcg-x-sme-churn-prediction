@@ -1,0 +1,45 @@
+"""
+Model Training and Evaluation Script for PowerCo SME Churn
+"""
+
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn import metrics
+
+def train_and_evaluate(data_path):
+    # Load dataset
+    df = pd.read_csv(data_path)
+    if 'Unnamed: 0' in df.columns:
+        df.drop(columns=['Unnamed: 0'], inplace=True)
+        
+    # Split features and target
+    y = df['churn']
+    X = df.drop(columns=['id', 'churn'])
+    
+    # Train / Test split
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.25, random_state=42, stratify=y
+    )
+    
+    # Train Random Forest with balanced class weights
+    model = RandomForestClassifier(n_estimators=1000, random_state=42, class_weight='balanced')
+    model.fit(X_train, y_train)
+    
+    # Predict
+    y_pred = model.predict(X_test)
+    y_prob = model.predict_proba(X_test)[:, 1]
+    
+    # Metrics
+    print("--- Model Performance ---")
+    print(f"Accuracy:  {metrics.accuracy_score(y_test, y_pred):.4f}")
+    print(f"Precision: {metrics.precision_score(y_test, y_pred):.4f}")
+    print(f"Recall:    {metrics.recall_score(y_test, y_pred):.4f}")
+    print(f"F1 Score:  {metrics.f1_score(y_test, y_pred):.4f}")
+    print(f"ROC-AUC:   {metrics.roc_auc_score(y_test, y_prob):.4f}")
+    print("\nConfusion Matrix:")
+    print(metrics.confusion_matrix(y_test, y_pred))
+
+if __name__ == "__main__":
+    train_and_evaluate('data_for_predictions.csv')

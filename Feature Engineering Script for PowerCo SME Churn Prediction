@@ -1,0 +1,46 @@
+"""
+Feature Engineering Script for PowerCo SME Churn Prediction
+"""
+
+import pandas as pd
+import numpy as np
+
+def load_data(clean_data_path, price_data_path):
+    """Load cleaned datasets."""
+    clean_df = pd.read_csv(clean_data_path)
+    price_df = pd.read_csv(price_data_path)
+    return clean_df, price_df
+
+def create_price_features(price_df):
+    """Calculate price difference features across off-peak, peak, and mid-peak periods."""
+    price_df['price_date'] = pd.to_datetime(price_df['price_date'])
+    
+    # Dec and Jan prices
+    dec_prices = price_df[price_df['price_date'].dt.month == 12]
+    jan_prices = price_df[price_df['price_date'].dt.month == 1]
+    
+    # Calculate price diffs
+    dec_prices = dec_prices.groupby('id').mean().reset_index()
+    jan_prices = jan_prices.groupby('id').mean().reset_index()
+    
+    price_diff = pd.merge(dec_prices[['id', 'price_off_peak_var', 'price_peak_var', 'price_mid_peak_var']],
+                          jan_prices[['id', 'price_off_peak_var', 'price_peak_var', 'price_mid_peak_var']],
+                          on='id', suffixes=('_dec', '_jan'))
+    
+    price_diff['off_peak_diff'] = price_diff['price_off_peak_var_dec'] - price_diff['price_off_peak_var_jan']
+    price_diff['peak_diff'] = price_diff['price_peak_var_dec'] - price_diff['price_peak_var_jan']
+    price_diff['mid_peak_diff'] = price_diff['price_mid_peak_var_dec'] - price_diff['price_mid_peak_var_jan']
+    
+    return price_diff[['id', 'off_peak_diff', 'peak_diff', 'mid_peak_diff']]
+
+def process_features(df):
+    """Apply log transforms and binary encoding."""
+    df_copy = df.copy()
+    
+    # Skewness treatment (log10 transformation for positive skewed consumption)
+    skewed_cols = ['cons_12m', 'cons_gas_12m', 'cons_last_month', 'forecast_cons_12m', 'forecast_meter_rent_12m']
+    for col in skewed_cols:
+        if col in df_copy.columns:
+            df_copy[col] = np.log10(df_copy[col] + 1)
+            
+    return df_copy
